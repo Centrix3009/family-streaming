@@ -90,6 +90,10 @@
 </head>
 <body>
     <div class="header">
+        
+        <h1>🎬 Family Movies</h1>
+        <p>Private collection – only for household use</p>
+
         <div style="margin-top:15px;">
     <input
         id="searchInput"
@@ -107,8 +111,7 @@
         "
     >
 </div>
-        <h1>🎬 Family Movies</h1>
-        <p>Private collection – only for household use</p>
+        
     </div>
     <div class="movie-grid" id="movieGrid"></div>
 
@@ -129,22 +132,29 @@
         // --------------------------------------------------------------
         // 📺 STEP 2: YOUR MOVIE LIST (title + embed video URL)
         // These are examples. Replace with your own.
-        const movies = [
-            {
-                title: "Back to the Future",
-                videoUrl: "https://www.youtube.com/embed/qvsgGtivCgs" // replace with real embed link
-            },
-            {
-                title: "The Godfather",
-                videoUrl: "https://www.youtube.com/embed/UaVTIH8mujA" // Google Drive embed
-            },
-            {
-                title: "Toy Story",
-                videoUrl: "https://www.youtube.com/embed/c51ND9Hdbw0" // example embed from third-party
-            },
-            // Add as many as you want
-        ];
+        let movies = [];
+        let filteredMovies = [];
         // --------------------------------------------------------------
+
+        async function loadMovies() {
+    try {
+
+        const response = await fetch('./movies.json');
+
+        movies = await response.json();
+
+        filteredMovies = [...movies];
+
+        renderMovies();
+
+    } catch(error) {
+
+        console.error("Failed loading movies:", error);
+
+        document.getElementById('movieGrid').innerHTML =
+            '<p>Failed to load movies.</p>';
+    }
+}
 
         // Fetch poster from TMDB
         async function fetchPoster(title) {
@@ -154,9 +164,13 @@
             `/api/poster?title=${encodeURIComponent(title)}`
         );
 
-        const data = await response.json();
+        if (!response.ok) {
+    throw new Error("Poster not found");
+}
 
-        return data.poster;
+const data = await response.json();
+
+return data.poster;
 
     } catch (error) {
 
@@ -169,9 +183,15 @@
         // Render movies
         async function renderMovies() {
             const grid = document.getElementById('movieGrid');
+            if (filteredMovies.length === 0) {
+    grid.innerHTML =
+        '<div style="grid-column:1/-1;text-align:center;">No movies found</div>';
+    return;
+}
+            
             grid.innerHTML = '<div style="grid-column:1/-1; text-align:center;">Loading posters...</div>';
 
-            const movieCards = await Promise.all(movies.map(async (movie, index) => {
+            const movieCards = await Promise.all(filteredMovies.map(async (movie, index) => {
                 const posterUrl = await fetchPoster(movie.title);
                 return `
                     <div class="movie-card" data-index="${index}">
@@ -187,7 +207,7 @@
             document.querySelectorAll('.movie-card').forEach(card => {
                 card.addEventListener('click', () => {
                     const idx = card.getAttribute('data-index');
-                    const videoUrl = movies[idx].videoUrl;
+                    const videoUrl = filteredMovies[idx].videoUrl;
                     openVideo(videoUrl);
                 });
             });
@@ -219,7 +239,24 @@
             }
         });
 
-        renderMovies();
+        document.addEventListener('DOMContentLoaded', () => {
+
+    document
+        .getElementById('searchInput')
+        .addEventListener('input', (e) => {
+
+            const query = e.target.value.toLowerCase();
+
+            filteredMovies = movies.filter(movie =>
+                movie.title.toLowerCase().includes(query)
+            );
+
+            renderMovies();
+        });
+
+});
+
+        loadMovies();
     </script>
 </body>
 </html>
