@@ -106,7 +106,7 @@
     <script>
         // --------------------------------------------------------------
         // 🔐 STEP 1: REPLACE WITH YOUR TMDB API KEY (free from themoviedb.org)
-        const TMDB_API_KEY = '5a207f816d7b9e55266d446d0015833a'; // <-- PUT YOUR KEY
+        
         // --------------------------------------------------------------
 
         // --------------------------------------------------------------
@@ -131,26 +131,23 @@
 
         // Fetch poster from TMDB
         async function fetchPoster(title) {
-            if (!TMDB_API_KEY || TMDB_API_KEY === 'YOUR_TMDB_API_KEY_HERE') {
-                // Fallback placeholder if no API key
-                return 'https://via.placeholder.com/300x450?text=No+Poster';
-            }
-            const url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}`;
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                if (data.results && data.results.length > 0) {
-                    const posterPath = data.results[0].poster_path;
-                    if (posterPath) {
-                        return `https://image.tmdb.org/t/p/w500${posterPath}`;
-                    }
-                }
-                return 'https://via.placeholder.com/300x450?text=No+Poster';
-            } catch (error) {
-                console.error('Poster fetch failed:', error);
-                return 'https://via.placeholder.com/300x450?text=Error';
-            }
-        }
+    try {
+
+        const response = await fetch(
+            `/api/poster?title=${encodeURIComponent(title)}`
+        );
+
+        const data = await response.json();
+
+        return data.poster;
+
+    } catch (error) {
+
+        console.error(error);
+
+        return 'https://via.placeholder.com/300x450?text=No+Poster';
+    }
+}
 
         // Render movies
         async function renderMovies() {
