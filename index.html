@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Family Streaming Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: white;
+            padding: 20px;
+        }
+        .header {
+            margin-bottom: 30px;
+        }
+        .movie-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 25px;
+        }
+        .movie-card {
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+            background: #1a1a1a;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .movie-card:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
+        }
+        .movie-poster {
+            width: 100%;
+            aspect-ratio: 2 / 3;
+            object-fit: cover;
+            display: block;
+        }
+        .movie-title {
+            padding: 10px;
+            font-size: 1rem;
+            font-weight: 500;
+            text-align: center;
+        }
+        /* Modal for video player */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            position: relative;
+            width: 90%;
+            max-width: 1100px;
+            aspect-ratio: 16 / 9;
+            background: black;
+        }
+        .modal iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .close {
+            position: absolute;
+            top: -40px;
+            right: 0;
+            background: white;
+            color: black;
+            border: none;
+            font-size: 24px;
+            padding: 5px 15px;
+            cursor: pointer;
+            border-radius: 30px;
+        }
+        @media (max-width: 600px) {
+            .movie-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; }
+            .movie-title { font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎬 Family Movies</h1>
+        <p>Private collection – only for household use</p>
+    </div>
+    <div class="movie-grid" id="movieGrid"></div>
+
+    <!-- Video Modal -->
+    <div id="videoModal" class="modal">
+        <div class="modal-content">
+            <button class="close" id="closeModal">&times;</button>
+            <iframe id="videoFrame" src="" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <script>
+        // --------------------------------------------------------------
+        // 🔐 STEP 1: REPLACE WITH YOUR TMDB API KEY (free from themoviedb.org)
+        const TMDB_API_KEY = '5a207f816d7b9e55266d446d0015833a'; // <-- PUT YOUR KEY
+        // --------------------------------------------------------------
+
+        // --------------------------------------------------------------
+        // 📺 STEP 2: YOUR MOVIE LIST (title + embed video URL)
+        // These are examples. Replace with your own.
+        const movies = [
+            {
+                title: "Back to the Future",
+                videoUrl: "https://www.youtube.com/embed/qvsgGtivCgs" // replace with real embed link
+            },
+            {
+                title: "The Godfather",
+                videoUrl: "https://www.youtube.com/embed/UaVTIH8mujA" // Google Drive embed
+            },
+            {
+                title: "Toy Story",
+                videoUrl: "https://www.youtube.com/embed/c51ND9Hdbw0" // example embed from third-party
+            },
+            // Add as many as you want
+        ];
+        // --------------------------------------------------------------
+
+        // Fetch poster from TMDB
+        async function fetchPoster(title) {
+            if (!TMDB_API_KEY || TMDB_API_KEY === 'YOUR_TMDB_API_KEY_HERE') {
+                // Fallback placeholder if no API key
+                return 'https://via.placeholder.com/300x450?text=No+Poster';
+            }
+            const url = `https://api.themoviedb.org/3/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(title)}`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.results && data.results.length > 0) {
+                    const posterPath = data.results[0].poster_path;
+                    if (posterPath) {
+                        return `https://image.tmdb.org/t/p/w500${posterPath}`;
+                    }
+                }
+                return 'https://via.placeholder.com/300x450?text=No+Poster';
+            } catch (error) {
+                console.error('Poster fetch failed:', error);
+                return 'https://via.placeholder.com/300x450?text=Error';
+            }
+        }
+
+        // Render movies
+        async function renderMovies() {
+            const grid = document.getElementById('movieGrid');
+            grid.innerHTML = '<div style="grid-column:1/-1; text-align:center;">Loading posters...</div>';
+
+            const movieCards = await Promise.all(movies.map(async (movie, index) => {
+                const posterUrl = await fetchPoster(movie.title);
+                return `
+                    <div class="movie-card" data-index="${index}">
+                        <img class="movie-poster" src="${posterUrl}" alt="${movie.title}" loading="lazy">
+                        <div class="movie-title">${movie.title}</div>
+                    </div>
+                `;
+            }));
+
+            grid.innerHTML = movieCards.join('');
+
+            // Add click listeners
+            document.querySelectorAll('.movie-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const idx = card.getAttribute('data-index');
+                    const videoUrl = movies[idx].videoUrl;
+                    openVideo(videoUrl);
+                });
+            });
+        }
+
+        // Open video modal
+        function openVideo(url) {
+            const modal = document.getElementById('videoModal');
+            const iframe = document.getElementById('videoFrame');
+            iframe.src = url;
+            modal.style.display = 'flex';
+        }
+
+        // Close modal
+        document.getElementById('closeModal').addEventListener('click', () => {
+            const modal = document.getElementById('videoModal');
+            const iframe = document.getElementById('videoFrame');
+            iframe.src = ''; // stop video
+            modal.style.display = 'none';
+        });
+
+        // Close on background click
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('videoModal');
+            if (e.target === modal) {
+                const iframe = document.getElementById('videoFrame');
+                iframe.src = '';
+                modal.style.display = 'none';
+            }
+        });
+
+        renderMovies();
+    </script>
+</body>
+<script>
+    if(prompt("Enter family password:") !== "mayankji") {
+        document.body.innerHTML = "<h1>🔒 Access Denied</h1>";
+        throw new Error("Unauthorized");
+    }
+</script>
+</html>
