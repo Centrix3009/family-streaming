@@ -13,8 +13,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing movie ID' });
   }
 
-  // List of embed providers that work with TMDB ID
-  // Format: just replace {id} with the actual ID
+  // List of working embed providers (June 2026)
   const providers = [
     `https://vidsrc.to/embed/movie/${id}`,
     `https://vidsrc.xyz/embed/movie/${id}`,
@@ -24,7 +23,7 @@ export default async function handler(req, res) {
     `https://multiembed.mov/?video_id=${id}&tmdb=1`
   ];
 
-  // Try each provider quickly (HEAD request) to find one that's alive
+  // Try each provider with a 3-second timeout
   for (const url of providers) {
     try {
       const controller = new AbortController();
@@ -40,6 +39,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // If none responded, return the first provider anyway (it might still work)
+  // If all checks fail, return the first URL anyway (it might still load in the iframe)
   return res.status(200).json({ success: true, url: providers[0] });
 }
