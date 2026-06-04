@@ -47,7 +47,6 @@
             font-weight: 500;
             text-align: center;
         }
-        /* Modal for video player */
         .modal {
             display: none;
             position: fixed;
@@ -90,28 +89,11 @@
 </head>
 <body>
     <div class="header">
+        <h1>🎬 Movies</h1>
         
-        <h1>🎬 Family Movies</h1>
-        <p>Private collection – only for household use</p>
-
         <div style="margin-top:15px;">
-    <input
-        id="searchInput"
-        type="text"
-        placeholder="🔍 Search movies..."
-        style="
-            width:100%;
-            max-width:400px;
-            padding:12px;
-            border:none;
-            border-radius:8px;
-            background:#1a1a1a;
-            color:white;
-            font-size:16px;
-        "
-    >
-</div>
-        
+            <input id="searchInput" type="text" placeholder="🔍 Search movies..." style="width:100%; max-width:400px; padding:12px; border:none; border-radius:8px; background:#1a1a1a; color:white; font-size:16px;">
+        </div>
     </div>
     <div class="movie-grid" id="movieGrid"></div>
 
@@ -123,72 +105,84 @@
         </div>
     </div>
 
-    <script>
-        // --------------------------------------------------------------
-        // 🔐 STEP 1: REPLACE WITH YOUR TMDB API KEY (free from themoviedb.org)
-        
-        // --------------------------------------------------------------
-
-        // --------------------------------------------------------------
-        // 📺 STEP 2: YOUR MOVIE LIST (title + embed video URL)
-        // These are examples. Replace with your own.
+    <script type="module">
         let movies = [];
         let filteredMovies = [];
-        // --------------------------------------------------------------
 
+        // Load movie list from JSON file
         async function loadMovies() {
-    try {
+            try {
+                const response = await fetch('./movies.json');
+                movies = await response.json();
+                filteredMovies = [...movies];
+                renderMovies();
+            } catch (error) {
+                console.error("Failed loading movies:", error);
+                document.getElementById('movieGrid').innerHTML = '<p>Failed to load movies.</p>';
+            }
+        }
 
-        const response = await fetch('./movies.json');
-
-        movies = await response.json();
-
-        filteredMovies = [...movies];
-
-        renderMovies();
-
-    } catch(error) {
-
-        console.error("Failed loading movies:", error);
-
-        document.getElementById('movieGrid').innerHTML =
-            '<p>Failed to load movies.</p>';
-    }
-}
-
-        // Fetch poster from TMDB
+        // Fetch poster using your existing poster API
         async function fetchPoster(title) {
-    try {
+            try {
+                const response = await fetch(`/api/poster?title=${encodeURIComponent(title)}`);
+                if (!response.ok) throw new Error("Poster not found");
+                const data = await response.json();
+                return data.poster;
+            } catch (error) {
+                console.error(error);
+                return 'https://via.placeholder.com/300x450?text=No+Poster';
+            }
+        }
 
-        const response = await fetch(
-            `/api/poster?title=${encodeURIComponent(title)}`
-        );
+        // NEW: Get video URL from your provider API
+        async function getVideoUrl(tmdbId) {
+            try {
+                const res = await fetch(`/api/get-video-url?id=${tmdbId}`);
+                const data = await res.json();
+                if (data.success && data.url) {
+                    return data.url;
+                } else {
+                    throw new Error(data.error || "No video link found");
+                }
+            } catch (err) {
+                console.error("Video fetch error:", err);
+                alert("Could not retrieve a working video link for this movie.");
+                return null;
+            }
+        }
 
-        if (!response.ok) {
-    throw new Error("Poster not found");
-}
+        // Open video in modal
+        function openVideo(url) {
+            const modal = document.getElementById('videoModal');
+            const iframe = document.getElementById('videoFrame');
+            iframe.src = url;
+            modal.style.display = 'flex';
+        }
 
-const data = await response.json();
+        // Close modal logic (unchanged)
+        document.getElementById('closeModal').addEventListener('click', () => {
+            const iframe = document.getElementById('videoFrame');
+            iframe.src = '';
+            document.getElementById('videoModal').style.display = 'none';
+        });
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('videoModal');
+            if (e.target === modal) {
+                const iframe = document.getElementById('videoFrame');
+                iframe.src = '';
+                modal.style.display = 'none';
+            }
+        });
 
-return data.poster;
-
-    } catch (error) {
-
-        console.error(error);
-
-        return 'https://via.placeholder.com/300x450?text=No+Poster';
-    }
-}
-
-        // Render movies
+        // Render movies grid
         async function renderMovies() {
             const grid = document.getElementById('movieGrid');
             if (filteredMovies.length === 0) {
-    grid.innerHTML =
-        '<div style="grid-column:1/-1;text-align:center;">No movies found</div>';
-    return;
-}
-            
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;">No movies found</div>';
+                return;
+            }
+
             grid.innerHTML = '<div style="grid-column:1/-1; text-align:center;">Loading posters...</div>';
 
             const movieCards = await Promise.all(filteredMovies.map(async (movie, index) => {
@@ -203,59 +197,31 @@ return data.poster;
 
             grid.innerHTML = movieCards.join('');
 
-            // Add click listeners
+            // Attach click handlers that call the new video API
             document.querySelectorAll('.movie-card').forEach(card => {
-                card.addEventListener('click', () => {
-                    const idx = card.getAttribute('data-index');
-                    const videoUrl = filteredMovies[idx].videoUrl;
-                    openVideo(videoUrl);
+                card.addEventListener('click', async () => {
+                    const idx = parseInt(card.getAttribute('data-index'));
+                    const movie = filteredMovies[idx];
+                    if (!movie.tmdbId) {
+                        alert("This movie doesn't have a TMDB ID configured.");
+                        return;
+                    }
+                    const videoUrl = await getVideoUrl(movie.tmdbId);
+                    if (videoUrl) openVideo(videoUrl);
                 });
             });
         }
 
-        // Open video modal
-        function openVideo(url) {
-            const modal = document.getElementById('videoModal');
-            const iframe = document.getElementById('videoFrame');
-            iframe.src = url;
-            modal.style.display = 'flex';
-        }
-
-        // Close modal
-        document.getElementById('closeModal').addEventListener('click', () => {
-            const modal = document.getElementById('videoModal');
-            const iframe = document.getElementById('videoFrame');
-            iframe.src = ''; // stop video
-            modal.style.display = 'none';
-        });
-
-        // Close on background click
-        window.addEventListener('click', (e) => {
-            const modal = document.getElementById('videoModal');
-            if (e.target === modal) {
-                const iframe = document.getElementById('videoFrame');
-                iframe.src = '';
-                modal.style.display = 'none';
-            }
-        });
-
+        // Search functionality
         document.addEventListener('DOMContentLoaded', () => {
-
-    document
-        .getElementById('searchInput')
-        .addEventListener('input', (e) => {
-
-            const query = e.target.value.toLowerCase();
-
-            filteredMovies = movies.filter(movie =>
-                movie.title.toLowerCase().includes(query)
-            );
-
-            renderMovies();
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                filteredMovies = movies.filter(movie => movie.title.toLowerCase().includes(query));
+                renderMovies();
+            });
         });
 
-});
-
+        // Start everything
         loadMovies();
     </script>
 </body>
